@@ -2,29 +2,43 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
-import { Trophy, Mail, Lock, User, Eye, EyeOff, ArrowRight, Github } from "lucide-react"
+import { Trophy, Phone, Lock, User, Eye, EyeOff, ArrowRight, Calendar, CheckCircle, XCircle } from "lucide-react"
+import { loginUser, signupUser, checkHealth } from "@/lib/api"
 
 export default function AuthPage() {
+  const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking")
+  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
+    gender: "male",
+    dateOfBirth: "",
     rememberMe: false,
     agreeToTerms: false,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Check backend connectivity on mount
+  useEffect(() => {
+    checkHealth()
+      .then(() => setBackendStatus("online"))
+      .catch(() => setBackendStatus("offline"))
+  }, [])
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -37,10 +51,10 @@ export default function AuthPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.email) {
-      newErrors.email = "Email is required"
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email"
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required"
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit phone number"
     }
 
     if (!formData.password) {
@@ -52,6 +66,9 @@ export default function AuthPage() {
     if (!isLogin) {
       if (!formData.name) {
         newErrors.name = "Name is required"
+      }
+      if (!formData.dateOfBirth) {
+        newErrors.dateOfBirth = "Date of birth is required"
       }
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = "Please confirm your password"
@@ -72,12 +89,34 @@ export default function AuthPage() {
     if (!validateForm()) return
 
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
+    setStatusMessage(null)
 
-    // Handle success (redirect to dashboard)
-    console.log(isLogin ? "Login successful" : "Signup successful")
+    try {
+      if (isLogin) {
+        const result = await loginUser(formData.phone, formData.password)
+        // Store the token
+        localStorage.setItem("access_token", result.access_token)
+        setStatusMessage({ type: "success", text: "Login successful! Redirecting..." })
+        setTimeout(() => router.push("/dashboard"), 1000)
+      } else {
+        await signupUser({
+          phone_number: formData.phone,
+          full_name: formData.name,
+          password: formData.password,
+          gender: formData.gender,
+          date_of_birth: new Date(formData.dateOfBirth).toISOString(),
+        })
+        setStatusMessage({ type: "success", text: "Account created! Please sign in." })
+        setTimeout(() => {
+          setIsLogin(true)
+          setStatusMessage(null)
+        }, 1500)
+      }
+    } catch (error: any) {
+      setStatusMessage({ type: "error", text: error.message || "Something went wrong" })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSocialLogin = (provider: string) => {
@@ -87,11 +126,14 @@ export default function AuthPage() {
   const switchMode = () => {
     setIsLogin(!isLogin)
     setErrors({})
+    setStatusMessage(null)
     setFormData({
       name: "",
-      email: "",
+      phone: "",
       password: "",
       confirmPassword: "",
+      gender: "male",
+      dateOfBirth: "",
       rememberMe: false,
       agreeToTerms: false,
     })
@@ -122,58 +164,49 @@ export default function AuthPage() {
                   <Trophy className="h-8 w-8 text-primary-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <CardTitle className="text-2xl font-bold">{isLogin ? "Welcome Back" : "Join SportIndia"}</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{isLogin ? "Welcome Back" : "Join KhelSetu"}</CardTitle>
                   <CardDescription className="text-base">
                     {isLogin ? "Sign in to access your fitness dashboard" : "Start your journey to athletic excellence"}
                   </CardDescription>
                 </div>
+                {/* Backend Status Indicator */}
+                <div className="flex items-center justify-center gap-2 text-xs">
+                  {backendStatus === "checking" && (
+                    <span className="text-muted-foreground">⏳ Checking server...</span>
+                  )}
+                  {backendStatus === "online" && (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" /> Server online
+                    </span>
+                  )}
+                  {backendStatus === "offline" && (
+                    <span className="text-destructive flex items-center gap-1">
+                      <XCircle className="h-3 w-3" /> Server offline
+                    </span>
+                  )}
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-6">
-                {/* Social Login */}
-                <div className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full group hover:bg-primary hover:text-primary-foreground transition-all duration-300 bg-transparent"
-                    onClick={() => handleSocialLogin("Google")}
+                {/* Status Message */}
+                {statusMessage && (
+                  <div
+                    className={`p-3 rounded-lg text-sm text-center animate-fade-in-up ${
+                      statusMessage.type === "success"
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
                   >
-                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                      <path
-                        fill="currentColor"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
-                    </svg>
-                    Continue with Google
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="w-full group hover:bg-secondary hover:text-secondary-foreground transition-all duration-300 bg-transparent"
-                    onClick={() => handleSocialLogin("GitHub")}
-                  >
-                    <Github className="w-5 h-5 mr-2" />
-                    Continue with GitHub
-                  </Button>
-                </div>
+                    {statusMessage.text}
+                  </div>
+                )}
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <Separator className="w-full" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+                    <span className="bg-background px-2 text-muted-foreground">Continue with phone number</span>
                   </div>
                 </div>
 
@@ -200,21 +233,22 @@ export default function AuthPage() {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="email"
-                        type="email"
-                        placeholder="Enter your email"
+                        id="phone"
+                        type="tel"
+                        placeholder="Enter 10-digit phone number"
+                        maxLength={10}
                         className={`pl-10 transition-all duration-300 focus:ring-2 focus:ring-primary/20 ${
-                          errors.email ? "border-destructive focus:ring-destructive/20" : ""
+                          errors.phone ? "border-destructive focus:ring-destructive/20" : ""
                         }`}
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange("phone", e.target.value.replace(/\D/g, ""))}
                       />
                     </div>
-                    {errors.email && <p className="text-sm text-destructive animate-fade-in-up">{errors.email}</p>}
+                    {errors.phone && <p className="text-sm text-destructive animate-fade-in-up">{errors.phone}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -282,6 +316,43 @@ export default function AuthPage() {
                       {errors.confirmPassword && (
                         <p className="text-sm text-destructive animate-fade-in-up">{errors.confirmPassword}</p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Gender and DOB for signup */}
+                  {!isLogin && (
+                    <div className="grid grid-cols-2 gap-4 animate-fade-in-up">
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Gender</Label>
+                        <select
+                          id="gender"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          value={formData.gender}
+                          onChange={(e) => handleInputChange("gender", e.target.value)}
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="others">Others</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dob">Date of Birth</Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="dob"
+                            type="date"
+                            className={`pl-10 transition-all duration-300 focus:ring-2 focus:ring-primary/20 ${
+                              errors.dateOfBirth ? "border-destructive focus:ring-destructive/20" : ""
+                            }`}
+                            value={formData.dateOfBirth}
+                            onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                          />
+                        </div>
+                        {errors.dateOfBirth && (
+                          <p className="text-sm text-destructive animate-fade-in-up">{errors.dateOfBirth}</p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -367,7 +438,7 @@ export default function AuthPage() {
 
             {/* Additional Info */}
             <div className="text-center mt-8 space-y-2 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-              <p className="text-sm text-muted-foreground">Join over 15,000+ athletes already using SportIndia</p>
+              <p className="text-sm text-muted-foreground">Join over 15,000+ athletes already using KhelSetu</p>
               <div className="flex items-center justify-center space-x-4 text-xs text-muted-foreground">
                 <span>🔒 Secure & Private</span>
                 <span>⚡ Instant Access</span>

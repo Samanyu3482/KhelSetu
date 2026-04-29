@@ -1,12 +1,54 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Users, Target, Activity, Timer, Zap } from "lucide-react"
 
+const heroImages = [
+  { src: "/images/carousel/sprint.png", alt: "Sprint Training", label: "Endurance" },
+  { src: "/images/carousel/strength.png", alt: "Strength Training", label: "Strength" },
+  { src: "/images/carousel/flexibility.png", alt: "Flexibility Training", label: "Flexibility" },
+  { src: "/images/carousel/agility.png", alt: "Agility Training", label: "Agility" },
+  { src: "/images/carousel/cricket.png", alt: "Cricket Training", label: "Cricket" },
+]
+
+const heroTaglines = [
+  { text: "Elevate Indian Sports with", highlight: "Smart Assessment" },
+  { text: "Unleash Athletic Potential with", highlight: "AI Analytics" },
+  { text: "Build Champions Through", highlight: "Data-Driven Training" },
+  { text: "Transform Performance with", highlight: "Scientific Testing" },
+  { text: "Power India's Athletes with", highlight: "Modern Technology" },
+]
+
 export default function HomePage() {
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [currentTagline, setCurrentTagline] = useState(0)
+  const [taglineVisible, setTaglineVisible] = useState(true)
+
+  // Auto-rotate carousel every 4 seconds
+  const nextSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev + 1) % heroImages.length)
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(nextSlide, 4000)
+    return () => clearInterval(timer)
+  }, [nextSlide])
+
+  // Auto-rotate taglines every 3.5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTaglineVisible(false)
+      setTimeout(() => {
+        setCurrentTagline((prev) => (prev + 1) % heroTaglines.length)
+        setTaglineVisible(true)
+      }, 500)
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [])
+
   const [animatedStats, setAnimatedStats] = useState({
     athletes: 0,
     events: 0,
@@ -82,9 +124,43 @@ export default function HomePage() {
                 <Badge variant="secondary" className="text-sm px-3 py-1">
                   AI-Powered Sports Assessment
                 </Badge>
-                <h1 className="text-4xl lg:text-6xl font-bold text-balance leading-tight">
-                  Elevate Indian Sports with
-                  <span className="text-primary"> Smart</span> Assessment
+                <h1 className="text-4xl lg:text-6xl font-bold leading-tight min-h-[1em]">
+                  <span
+                    className="inline-block transition-all duration-500"
+                    style={{
+                      opacity: taglineVisible ? 1 : 0,
+                      transform: taglineVisible ? "translateY(0)" : "translateY(20px)",
+                    }}
+                  >
+                    {heroTaglines[currentTagline].text.split(" ").map((word, i) => (
+                      <span
+                        key={`${currentTagline}-${i}`}
+                        className="inline-block animate-[wordSlideIn_0.5s_ease-out_forwards] opacity-0"
+                        style={{ animationDelay: `${i * 0.08}s` }}
+                      >
+                        {word}&nbsp;
+                      </span>
+                    ))}
+                  </span>
+                  <br />
+                  <span
+                    className="inline-block text-primary transition-all duration-500"
+                    style={{
+                      opacity: taglineVisible ? 1 : 0,
+                      transform: taglineVisible ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
+                      transitionDelay: "0.2s",
+                    }}
+                  >
+                    {heroTaglines[currentTagline].highlight.split(" ").map((word, i) => (
+                      <span
+                        key={`${currentTagline}-hl-${i}`}
+                        className="inline-block animate-[wordSlideIn_0.5s_ease-out_forwards] opacity-0"
+                        style={{ animationDelay: `${(heroTaglines[currentTagline].text.split(" ").length + i) * 0.08 + 0.15}s` }}
+                      >
+                        {word}&nbsp;
+                      </span>
+                    ))}
+                  </span>
                 </h1>
                 <p className="text-xl text-muted-foreground text-pretty max-w-2xl">
                   Comprehensive fitness testing platform designed for Indian athletes. Track performance, analyze data,
@@ -120,13 +196,60 @@ export default function HomePage() {
             </div>
 
             <div className="relative animate-fade-in-right">
-              <div className="relative">
-                <img
-                  src="/placeholder.svg?height=600&width=500"
-                  alt="Indian athletes in various sports"
-                  className="rounded-2xl shadow-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent rounded-2xl" />
+              {/* Image Carousel */}
+              <div className="relative w-full aspect-[5/6] rounded-2xl shadow-2xl overflow-hidden">
+                {heroImages.map((image, index) => (
+                  <div
+                    key={image.src}
+                    className="absolute inset-0 transition-all duration-700 ease-in-out"
+                    style={{
+                      opacity: currentSlide === index ? 1 : 0,
+                      transform: currentSlide === index ? "scale(1)" : "scale(1.05)",
+                    }}
+                  >
+                    <img
+                      src={image.src}
+                      alt={image.alt}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+                {/* Category label */}
+                <div className="absolute bottom-16 left-4">
+                  <span className="inline-block bg-primary/90 text-white text-sm font-semibold px-4 py-1.5 rounded-full backdrop-blur-sm">
+                    {heroImages[currentSlide].label}
+                  </span>
+                </div>
+
+                {/* Dot indicators */}
+                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+                  {heroImages.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentSlide(index)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        currentSlide === index
+                          ? "w-7 bg-white"
+                          : "w-2 bg-white/50 hover:bg-white/75"
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Progress bar */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                  <div
+                    className="h-full bg-primary transition-none"
+                    style={{
+                      animation: "progressBar 4s linear infinite",
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Floating Cards */}

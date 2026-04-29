@@ -6,6 +6,8 @@ from db.session import get_db
 from schemas import token, athlete
 from crud import crud_athlete
 from core.security import verify_password, create_access_token
+from api.deps import get_current_user
+from db import models
 
 router = APIRouter()
 
@@ -40,3 +42,10 @@ def create_new_athlete(athlete_data: athlete.AthleteCreate, db: Session = Depend
     
     # Create new athlete
     return crud_athlete.create_athlete(db=db, athlete_data=athlete_data)
+
+@router.get("/me", response_model=athlete.Athlete)
+def read_users_me(current_user: models.Athlete = Depends(get_current_user)):
+    """
+    Get current user profile information
+    """
+    return current_user

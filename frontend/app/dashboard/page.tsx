@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { getCurrentUser, getUserAssessments } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +21,9 @@ import {
   ArrowUp,
   ArrowDown,
   CheckCircle,
+  Camera,
 } from "lucide-react"
+import Link from "next/link"
 import {
   LineChart,
   Line,
@@ -34,6 +38,10 @@ import {
 } from "recharts"
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const [user, setUser] = useState<{ full_name: string; phone_number: string } | null>(null)
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
+  const [recentTests, setRecentTests] = useState<any[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState("month")
   const [animatedStats, setAnimatedStats] = useState({
     totalTests: 0,
@@ -41,6 +49,29 @@ export default function DashboardPage() {
     rank: 0,
     streak: 0,
   })
+
+  // Fetch current user and their assessments
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userData = await getCurrentUser()
+        setUser(userData)
+        
+        try {
+          const assessments = await getUserAssessments()
+          setRecentTests(assessments)
+        } catch (err) {
+          console.error("Failed to fetch assessments", err)
+        }
+      } catch (error) {
+        // If not logged in or token invalid, redirect to auth
+        router.push("/auth")
+      } finally {
+        setIsLoadingUser(false)
+      }
+    }
+    fetchData()
+  }, [router])
 
   // Animate dashboard stats on load
   useEffect(() => {
@@ -85,45 +116,6 @@ export default function DashboardPage() {
     { name: "Strength", value: 28, color: "hsl(var(--secondary))" },
     { name: "Agility", value: 22, color: "hsl(var(--accent))" },
     { name: "Flexibility", value: 15, color: "hsl(var(--muted))" },
-  ]
-
-  const recentTests = [
-    {
-      id: 1,
-      name: "12-Minute Run",
-      category: "Endurance",
-      score: 85,
-      date: "2024-01-15",
-      improvement: 5,
-      badge: "Personal Best",
-    },
-    {
-      id: 2,
-      name: "Push-Up Test",
-      category: "Strength",
-      score: 78,
-      date: "2024-01-12",
-      improvement: -2,
-      badge: null,
-    },
-    {
-      id: 3,
-      name: "Vertical Jump",
-      category: "Strength",
-      score: 82,
-      date: "2024-01-10",
-      improvement: 8,
-      badge: "Great Progress",
-    },
-    {
-      id: 4,
-      name: "Shuttle Run",
-      category: "Agility",
-      score: 76,
-      date: "2024-01-08",
-      improvement: 3,
-      badge: null,
-    },
   ]
 
   const leaderboard = [
@@ -176,16 +168,24 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="space-y-2">
-              <h1 className="text-3xl lg:text-4xl font-bold">Welcome back, Rahul!</h1>
+              {isLoadingUser ? (
+                <div className="h-10 w-64 bg-muted animate-pulse rounded-md"></div>
+              ) : (
+                <h1 className="text-3xl lg:text-4xl font-bold">
+                  Welcome back, {user?.full_name ? user.full_name.split(" ")[0] : "Athlete"}!
+                </h1>
+              )}
               <p className="text-lg text-muted-foreground">
                 Track your fitness journey and compete with athletes across India
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Button className="group">
-                <Calendar className="h-4 w-4 mr-2" />
-                Schedule Test
-              </Button>
+              <Link href="/live-assessment">
+                <Button className="group bg-red-600 hover:bg-red-700 text-white">
+                  <Camera className="h-4 w-4 mr-2" />
+                  Live AI Assessment
+                </Button>
+              </Link>
               <Button variant="outline">
                 <TrendingUp className="h-4 w-4 mr-2" />
                 View Reports
@@ -317,45 +317,39 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentTests.map((test, index) => (
-                      <div
-                        key={test.id}
-                        className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors animate-fade-in-right"
-                        style={{ animationDelay: `${index * 0.1}s` }}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Activity className="h-6 w-6 text-primary" />
+                    {recentTests.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No assessments found. Try a Live AI Assessment!</p>
+                    ) : (
+                      recentTests.map((test, index) => (
+                        <div
+                          key={test.id}
+                          className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors animate-fade-in-right"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                              <Activity className="h-6 w-6 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">{test.test_name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {test.date}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium">{test.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {test.category} • {test.date}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          {test.badge && (
-                            <Badge variant="secondary" className="text-xs">
-                              {test.badge}
-                            </Badge>
-                          )}
-                          <div className="text-right">
-                            <div className="font-bold text-lg">{test.score}%</div>
-                            <div
-                              className={`text-sm flex items-center ${test.improvement > 0 ? "text-secondary" : "text-destructive"}`}
-                            >
-                              {test.improvement > 0 ? (
-                                <ArrowUp className="h-3 w-3 mr-1" />
-                              ) : (
-                                <ArrowDown className="h-3 w-3 mr-1" />
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <div className="font-bold text-lg">{test.score} {test.unit}</div>
+                              {test.ai_feedback && (
+                                <div className="text-xs text-muted-foreground max-w-[150px] truncate" title={test.ai_feedback}>
+                                  AI: {test.ai_feedback}
+                                </div>
                               )}
-                              {Math.abs(test.improvement)}%
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

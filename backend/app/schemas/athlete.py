@@ -23,7 +23,7 @@ class AthleteUpdate(BaseModel):
 # This prevents sensitive data like password from being returned
 class AthleteInDBBase(AthleteBase):
     model_config = ConfigDict(from_attributes=True)  # Allows ORM mode
-    id: uuid.UUID
+    id: str
     state: Optional[str] = None
     district: Optional[str] = None
     profile_status: str

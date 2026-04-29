@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Enum,Text,Boolean
-from sqlalchemy.orm import relationship,declarative_base
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Enum, Text, Boolean
+from sqlalchemy.orm import relationship, declarative_base
 
 import enum
 from datetime import datetime
@@ -36,7 +35,7 @@ class OfficialRoleEnum(enum.Enum):
 
 class Athlete(Base):
     __tablename__ = "athletes"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     phone_number = Column(String(10), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(100))
@@ -60,8 +59,8 @@ class AssessmentTest(Base):
 
 class AthleteAssessment(Base):
     __tablename__ = "athlete_assessments"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    athlete_id = Column(UUID(as_uuid=True), ForeignKey("athletes.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    athlete_id = Column(String(36), ForeignKey("athletes.id"), nullable=False)
     status = Column(Enum(AssessmentStatusEnum), default=AssessmentStatusEnum.ASSESSMENT_PENDING)
     started_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime)
@@ -70,8 +69,8 @@ class AthleteAssessment(Base):
 
 class AssessmentResult(Base):
     __tablename__ = "assessment_results"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    assessment_id = Column(UUID(as_uuid=True), ForeignKey("athlete_assessments.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    assessment_id = Column(String(36), ForeignKey("athlete_assessments.id"), nullable=False)
     test_id = Column(Integer, ForeignKey("assessment_tests.id"), nullable=False)
     recorded_value = Column(Float, nullable=False)
     percentile = Column(Float)
@@ -86,7 +85,7 @@ class AssessmentResult(Base):
 # Optional Admin Model
 class Official(Base):
     __tablename__ = "officials"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String(255), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(100))
